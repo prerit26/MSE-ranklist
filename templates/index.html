@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Performance Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --primary: #3B82F6;
+            --primary-hover: #2563EB;
+            --bg-body: #F3F4F6;
+            --bg-card: #FFFFFF;
+            --text-main: #111827;
+            --text-muted: #6B7280;
+            --border: #E5E7EB;
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            
+            /* Status Colors */
+            --danger-bg: #FEF2F2;
+            --danger-text: #991B1B;
+            --danger-border: #FCA5A5;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-body); color: var(--text-main); margin: 0; }
+
+        /* --- Layout --- */
+        header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 20px 40px; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand h1 { font-size: 20px; font-weight: 700; margin: 0; }
+        .brand-icon { width: 32px; height: 32px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; }
+
+        .main-container { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
+
+        /* --- Toolbar --- */
+        .toolbar { background: var(--bg-card); padding: 16px; border-radius: 12px; display: flex; gap: 16px; align-items: center; margin-bottom: 24px; border: 1px solid var(--border); }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 11px; text-transform: uppercase; font-weight: 600; color: var(--text-muted); }
+        select { padding: 10px; border-radius: 8px; border: 1px solid var(--border); min-width: 160px; }
+        button.primary-btn { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-left: auto; }
+        button.primary-btn:hover { background: var(--primary-hover); }
+
+        /* --- Analytics Section --- */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .stats-column {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-md);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .stat-title { color: var(--text-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.05em; }
+        .stat-value { font-size: 28px; font-weight: 800; color: var(--text-main); }
+        .stat-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+        .chart-container {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-md);
+            padding: 16px 24px;
+            height: 320px;
+            position: relative;
+        }
+
+        @media (max-width: 768px) {
+            .analytics-grid { grid-template-columns: 1fr; }
+            .stats-column { flex-direction: row; flex-wrap: wrap; }
+            .stat-card { flex: 1; min-width: 140px; }
+        }
+
+        /* --- Table --- */
+        .table-container { background: var(--bg-card); border-radius: 16px; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-md); }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        thead { background: #F9FAFB; border-bottom: 1px solid var(--border); }
+        th { padding: 16px 24px; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); }
+        td { padding: 16px 24px; font-size: 14px; border-bottom: 1px solid var(--border); }
+        tbody tr:hover { background: #F3F4F6; cursor: pointer; }
+        
+        .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #E5E7EB; font-weight: 600; font-size: 12px; }
+        tbody tr:nth-child(1) .rank-badge { background: #FEF3C7; color: #D97706; }
+        tbody tr:nth-child(2) .rank-badge { background: #F3F4F6; color: #4B5563; }
+        tbody tr:nth-child(3) .rank-badge { background: #FFEDD5; color: #C2410C; }
+        .gpa-text { font-weight: 700; }
+
+        /* --- Modal --- */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 100; opacity: 0; transition: opacity 0.3s ease; }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        .modal-card { background: white; width: 100%; max-width: 500px; border-radius: 16px; box-shadow: var(--shadow-lg); transform: translateY(20px); transition: transform 0.3s; overflow: hidden; }
+        .modal-overlay.active .modal-card { transform: translateY(0); }
+        
+        .modal-header { padding: 24px; border-bottom: 1px solid var(--border); background: #FAFAFA; }
+        .student-info h2 { margin: 0; font-size: 20px; }
+        .student-info p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 14px; }
+
+        .modal-body { padding: 24px; }
+        .score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+        .score-card { background: #F9FAFB; padding: 16px; border-radius: 10px; text-align: center; border: 1px solid var(--border); }
+        .score-val { font-size: 24px; font-weight: 800; color: var(--primary); }
+        .score-label { font-size: 12px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+
+        .subjects-list { display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; padding-right: 8px; }
+        .subject-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #F3F4F6; font-size: 14px; }
+        .subject-name { font-weight: 500; }
+        
+        .score-wrapper { display: flex; align-items: center; gap: 10px; }
+        .subject-score { font-weight: 600; color: var(--text-main); font-size: 16px; }
+
+        /* Badge Styles for specific subjects */
+        .badge-supp-small {
+            font-size: 10px;
+            color: var(--danger-text);
+            background: var(--danger-bg);
+            border: 1px solid var(--danger-border);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); text-align: right; }
+        button.close-btn { background: white; border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+        button.close-btn:hover { background: #F3F4F6; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand"><div class="brand-icon">🎓</div><h1>Student Results Dashboard</h1></div>
+    </header>
+
+    <div class="main-container">
+        <div class="toolbar">
+            <div class="control-group">
+                <label>Semester</label>
+                <select id="semesterSelect">
+                    <option value="1">Semester 1</option>
+                    <option value="2">Semester 2</option>
+                    <option value="overall">Overall Result</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Class Filter</label>
+                <select id="classSelect"><option value="all">View All Classes</option></select>
+            </div>
+            <button class="primary-btn" onclick="loadData()">View</button>
+        </div>
+
+        <div class="analytics-grid" id="analyticsSection" style="display: none;">
+            <div class="stats-column">
+                <div class="stat-card">
+                    <div class="stat-title">Class Average</div>
+                    <div class="stat-value" id="statAverage">0.0</div>
+                    <div class="stat-desc">CGPA</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Highest Score</div>
+                    <div class="stat-value" id="statHigh">0.0</div>
+                    <div class="stat-desc">Top Performer</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Total Students</div>
+                    <div class="stat-value" id="statCount">0</div>
+                    <div class="stat-desc">Enrolled</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="gradeChart"></canvas>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="resultsTable">
+                <thead><tr><th width="80">Rank</th><th>ID</th><th>Student Name</th><th>Class</th><th>GPA</th><th>CGPA</th></tr></thead>
+                <tbody><tr><td colspan="6" style="text-align: center; padding: 40px; color: #9CA3AF;">Select options and click "View"</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="modal" class="modal-overlay" onclick="if(event.target === this) closeModal()">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="student-info">
+                    <h2 id="modalName">Student Name</h2> 
+                    <p id="modalId">ID: 12345 • <span id="modalClass">Class X</span></p>
+                </div>
+            </div>
+            
+            <div class="modal-body">
+                <div class="score-grid">
+                    <div class="score-card"><div class="score-val" id="modalGpa">0.0</div><div class="score-label">GPA</div></div>
+                    <div class="score-card"><div class="score-val" id="modalCgpa">0.0</div><div class="score-label">CGPA</div></div>
+                </div>
+                <div style="margin-bottom: 10px; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Subject Breakdown</div>
+                <div id="modalSubjects" class="subjects-list"></div>
+            </div>
+
+            <div class="modal-footer"><button class="close-btn" onclick="closeModal()">Close Details</button></div>
+        </div>
+    </div>
+
+<script>
+let currentData = [];
+let gradeChartInstance = null; // Store chart instance globally
+
+async function loadClasses() {
+    try {
+        const res = await fetch('/api/classes');
+        const classes = await res.json();
+        const s = document.getElementById('classSelect');
+        classes.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c; opt.textContent = c; s.appendChild(opt);
+        });
+    } catch (e) { console.error(e); }
+}
+
+async function loadData() {
+    const sem = document.getElementById('semesterSelect').value;
+    const cls = document.getElementById('classSelect').value;
+    const btn = document.querySelector('.primary-btn');
+    const analyticsSec = document.getElementById('analyticsSection');
+    
+    btn.textContent = "Loading..."; btn.disabled = true;
+
+    try {
+        const url = cls === "all" ? `/api/ranklist?semester=${sem}` : `/api/ranklist/${cls}?semester=${sem}`;
+        const res = await fetch(url);
+        currentData = await res.json();
+        const tbody = document.querySelector('#resultsTable tbody');
+        tbody.innerHTML = "";
+
+        if(currentData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: #6B7280;">No records found.</td></tr>`;
+            analyticsSec.style.display = 'none'; // Hide analytics if no data
+            return;
+        }
+
+        // --- Update Analytics ---
+        updateAnalytics(currentData);
+
+        // --- Render Table ---
+        currentData.forEach((s, i) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><span class="rank-badge">${s.rank}</span></td>
+                <td style="font-family: monospace; color: #6B7280;">${s.enrollment_number}</td>
+                <td style="font-weight: 500;">${s.student_name}</td>
+                <td><span style="background: #EFF6FF; color: #1D4ED8; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${s.class}</span></td>
+                <td class="gpa-text">${s.gpa}</td>
+                <td>${s.cgpa}</td>
+            `;
+            row.onclick = () => openModal(i);
+            tbody.appendChild(row);
+        });
+    } catch (e) { 
+        console.error(e);
+        alert("Error loading data."); 
+    } 
+    finally { btn.textContent = "View"; btn.disabled = false; }
+}
+
+// --- NEW FUNCTION: Update Charts and Stats ---
+function updateAnalytics(data) {
+    const analyticsSection = document.getElementById('analyticsSection');
+    analyticsSection.style.display = 'grid';
+
+    // 1. Calculate Stats
+    // We filter out anyone with missing CGPA to avoid NaN
+    const validScores = data
+        .map(s => parseFloat(s.cgpa))
+        .filter(val => !isNaN(val));
+
+    if (validScores.length === 0) {
+        document.getElementById('statAverage').textContent = "0.0";
+        document.getElementById('statHigh').textContent = "0.0";
+        document.getElementById('statCount').textContent = "0";
+        return;
+    }
+
+    const avg = (validScores.reduce((a, b) => a + b, 0) / validScores.length).toFixed(2);
+    const max = Math.max(...validScores).toFixed(2);
+
+    document.getElementById('statAverage').textContent = avg;
+    document.getElementById('statHigh').textContent = max;
+    document.getElementById('statCount').textContent = data.length;
+
+    // 2. Prepare buckets for Chart
+    const buckets = { '< 5': 0, '5-6': 0, '6-7': 0, '7-8': 0, '8-9': 0, '9-10': 0 };
+
+    validScores.forEach(score => {
+        if (score < 5) buckets['< 5']++;
+        else if (score < 6) buckets['5-6']++;
+        else if (score < 7) buckets['6-7']++;
+        else if (score < 8) buckets['7-8']++;
+        else if (score < 9) buckets['8-9']++;
+        else buckets['9-10']++;
+    });
+
+    // 3. Render Chart.js
+    const ctx = document.getElementById('gradeChart').getContext('2d');
+
+    // Destroy previous chart to prevent duplication
+    if (gradeChartInstance) {
+        gradeChartInstance.destroy();
+    }
+
+    gradeChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(buckets),
+            datasets: [{
+                label: 'Student Count',
+                data: Object.values(buckets),
+                backgroundColor: '#3B82F6', // Brand color
+                borderRadius: 4,
+                barThickness: 'flex',
+                maxBarThickness: 40
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                title: { 
+                    display: true, 
+                    text: 'CGPA Distribution', 
+                    align: 'start',
+                    font: { size: 14, weight: '600' },
+                    color: '#6B7280',
+                    padding: { bottom: 20 }
+                },
+                tooltip: {
+                    backgroundColor: '#1F2937',
+                    padding: 10,
+                    cornerRadius: 8,
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 },
+                    grid: { borderDash: [4, 4], color: '#E5E7EB' }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
+function openModal(index) {
+    const s = currentData[index];
+    const modal = document.getElementById('modal');
+
+    document.getElementById('modalName').textContent = s.student_name;
+    document.getElementById('modalId').innerHTML = `ID: ${s.enrollment_number} • <span style="color: var(--text-main)">${s.class}</span>`;
+    document.getElementById('modalGpa').textContent = s.gpa;
+    document.getElementById('modalCgpa').textContent = s.cgpa;
+
+    let html = "";
+    const ignoreKeys = ["enrollment_number", "student_name", "class", "gpa", "cgpa", "rank", "has_supp", "supp_subjects"];
+
+    for (let key in s) {
+        if (!ignoreKeys.includes(key) && s[key] != null) {
+            const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            
+            let badgeHtml = "";
+            if (s.supp_subjects && s.supp_subjects.includes(key)) {
+                badgeHtml = `<span class="badge-supp-small">Supp Exam</span>`;
+            }
+
+            html += `
+                <div class="subject-item">
+                    <span class="subject-name">${label}</span>
+                    <div class="score-wrapper">
+                        ${badgeHtml}
+                        <span class="subject-score">${s[key]}</span>
+                    </div>
+                </div>
+            `;
+        }
+    }
+    document.getElementById('modalSubjects').innerHTML = html;
+    modal.classList.add('active');
+    modal.style.display = "flex";
+}
+
+function closeModal() {
+    const modal = document.getElementById('modal');
+    modal.classList.remove('active');
+    setTimeout(() => { modal.style.display = "none"; }, 200);
+}
+
+loadClasses();
+</script>
+</body>
+</html>
